@@ -118,6 +118,7 @@ export class BattleScene extends Phaser.Scene {
   private lastInputSentAt = 0;
   private dashUntil = 0;
   private dashReadyAt = 0;
+  private lastMovementAt = 0;
   private panAnchor: Phaser.Math.Vector2 | undefined;
   private activeAnimation = "idle";
   private currentMatchPhase: GameSnapshot["match"]["phase"] = "waiting";
@@ -159,6 +160,7 @@ export class BattleScene extends Phaser.Scene {
 
   update(time: number, delta: number) {
     this.updateHero(time);
+    this.updateHeroReconciliation(time, delta / 1000);
     this.updateRemoteHeroes(time);
     this.updateUnits(delta / 1000);
     this.drawHealthBars();
@@ -369,6 +371,7 @@ export class BattleScene extends Phaser.Scene {
       Number(this.keys.down.isDown) - Number(this.keys.up.isDown)
     );
     if (movement.lengthSq() > 0) movement.normalize();
+    if (movement.lengthSq() > 0) this.lastMovementAt = time;
     if (
       Phaser.Input.Keyboard.JustDown(this.keys.dash) &&
       time >= this.dashReadyAt &&
@@ -421,6 +424,17 @@ export class BattleScene extends Phaser.Scene {
     if (state === "dash") this.localHero.setScale(1.18, 0.82);
   }
 
+  private updateHeroReconciliation(time: number, deltaSeconds: number) {
+    if (!this.localHero || !this.localHeroState) return;
+    const reconciled = reconcileHeroPosition(
+      { x: this.localHero.x, y: this.localHero.y },
+      this.localHeroState.position,
+      time - this.lastMovementAt < 220,
+      deltaSeconds
+    );
+    this.localHero.setPosition(reconciled.x, reconciled.y);
+  }
+
   private applySnapshot(snapshot: GameSnapshot) {
     this.latestSnapshot = snapshot;
     window.dispatchEvent(new CustomEvent<GameSnapshot>("aetherion:snapshot", { detail: snapshot }));
@@ -433,21 +447,6 @@ export class BattleScene extends Phaser.Scene {
     const now = performance.now();
     const localState = snapshot.heroes.find((hero) => hero.id === this.playerId);
     this.localHeroState = localState;
-    if (localState && this.localHero) {
-      const moving = Boolean(
-        this.keys &&
-          (this.keys.up.isDown ||
-            this.keys.down.isDown ||
-            this.keys.left.isDown ||
-            this.keys.right.isDown)
-      );
-      const reconciled = reconcileHeroPosition(
-        { x: this.localHero.x, y: this.localHero.y },
-        localState.position,
-        moving
-      );
-      this.localHero.setPosition(reconciled.x, reconciled.y);
-    }
     for (const hero of snapshot.heroes) {
       if (hero.id === this.playerId) continue;
       const buffer = this.remoteBuffers.get(hero.id) ?? [];

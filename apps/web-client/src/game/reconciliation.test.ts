@@ -4,24 +4,31 @@ import { reconcileHeroPosition } from "./reconciliation";
 
 describe("hero reconciliation", () => {
   it("ignores normal network-latency differences while moving", () => {
-    expect(reconcileHeroPosition({ x: 130, y: 100 }, { x: 100, y: 100 }, true)).toEqual({
+    expect(reconcileHeroPosition({ x: 130, y: 100 }, { x: 100, y: 100 }, true, 1 / 60)).toEqual({
       x: 130,
       y: 100
     });
   });
 
   it("settles gently on the authoritative position after stopping", () => {
-    expect(reconcileHeroPosition({ x: 130, y: 100 }, { x: 100, y: 100 }, false)).toEqual({
-      x: 121,
-      y: 100
-    });
+    const corrected = reconcileHeroPosition(
+      { x: 130, y: 100 },
+      { x: 100, y: 100 },
+      false,
+      1 / 60
+    );
+    expect(corrected.x).toBeLessThan(130);
+    expect(corrected.x).toBeGreaterThan(100);
   });
 
-  it("snaps only when prediction is substantially invalid", () => {
-    expect(reconcileHeroPosition({ x: 300, y: 100 }, { x: 100, y: 100 }, true)).toEqual({
-      x: 100,
-      y: 100
-    });
+  it("repairs a large error smoothly instead of snapping", () => {
+    const corrected = reconcileHeroPosition(
+      { x: 500, y: 100 },
+      { x: 100, y: 100 },
+      true,
+      1 / 60
+    );
+    expect(corrected.x).toBeLessThan(500);
+    expect(corrected.x).toBeGreaterThan(100);
   });
 });
-
