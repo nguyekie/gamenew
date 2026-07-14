@@ -4,6 +4,7 @@ import type { Server as HttpServer } from "node:http";
 import {
   BASE_POSITIONS,
   GAME_TICK_RATE,
+  HERO_DASH_DURATION_MS,
   MAP_SIZE,
   RESOURCE_NODES,
   type AttackCommandMessage,
@@ -95,6 +96,7 @@ interface PlayerSession {
   unitPaths: Map<string, Vector2[]>;
   input: PlayerInputMessage;
   lastDashAt: number;
+  dashUntil: number;
   attacksAt: Map<string, number>;
   abilityReadyAt: Map<HeroAbility, number>;
   disconnectedAt: number | null;
@@ -238,6 +240,7 @@ const createSession = (slot: number, isBot = false): PlayerSession => {
     unitPaths: new Map(),
     input: idleInput(),
     lastDashAt: 0,
+    dashUntil: 0,
     attacksAt: new Map(),
     abilityReadyAt: new Map(),
     disconnectedAt: null,
@@ -633,9 +636,12 @@ export class RealtimeRoomServer {
         for (const player of room.players.values()) {
           if (player.isBot) this.updateBot(room, player, now);
           player.reveals = player.reveals.filter((reveal) => reveal.expiresAt > now);
-          const dashAllowed = player.input.dash && now - player.lastDashAt >= DASH_COOLDOWN_MS;
-          if (dashAllowed) player.lastDashAt = now;
-          player.hero = simulateHero(player.hero, player.input, delta, dashAllowed);
+          if (player.input.dash && now - player.lastDashAt >= DASH_COOLDOWN_MS) {
+            player.lastDashAt = now;
+            player.dashUntil = now + HERO_DASH_DURATION_MS;
+          }
+          const dashing = player.input.dash && now < player.dashUntil;
+          player.hero = simulateHero(player.hero, player.input, delta, dashing);
           this.updateEconomy(room, player, now);
           this.moveUnits(room, player, delta, now);
         }

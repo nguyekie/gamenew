@@ -1,5 +1,6 @@
 import {
   HERO_DASH_SPEED,
+  HERO_DASH_DURATION_MS,
   HERO_SPEED,
   MAP_OBSTACLES,
   MAP_SIZE,
@@ -24,6 +25,7 @@ import { keybinds, gameColors } from "./config";
 import { createFormation } from "./formation";
 import { GameNetwork, type ConnectionStatus } from "./network";
 import { findPath } from "./pathfinding";
+import { reconcileHeroPosition } from "./reconciliation";
 
 interface UnitView {
   state: UnitState;
@@ -372,7 +374,7 @@ export class BattleScene extends Phaser.Scene {
       time >= this.dashReadyAt &&
       movement.lengthSq() > 0
     ) {
-      this.dashUntil = time + 150;
+      this.dashUntil = time + HERO_DASH_DURATION_MS;
       this.dashReadyAt = time + 850;
     }
     const dashing = time < this.dashUntil;
@@ -432,15 +434,19 @@ export class BattleScene extends Phaser.Scene {
     const localState = snapshot.heroes.find((hero) => hero.id === this.playerId);
     this.localHeroState = localState;
     if (localState && this.localHero) {
-      const distance = Phaser.Math.Distance.Between(
-        this.localHero.x,
-        this.localHero.y,
-        localState.position.x,
-        localState.position.y
+      const moving = Boolean(
+        this.keys &&
+          (this.keys.up.isDown ||
+            this.keys.down.isDown ||
+            this.keys.left.isDown ||
+            this.keys.right.isDown)
       );
-      const correction = distance > 180 ? 1 : 0.12;
-      this.localHero.x = Phaser.Math.Linear(this.localHero.x, localState.position.x, correction);
-      this.localHero.y = Phaser.Math.Linear(this.localHero.y, localState.position.y, correction);
+      const reconciled = reconcileHeroPosition(
+        { x: this.localHero.x, y: this.localHero.y },
+        localState.position,
+        moving
+      );
+      this.localHero.setPosition(reconciled.x, reconciled.y);
     }
     for (const hero of snapshot.heroes) {
       if (hero.id === this.playerId) continue;
