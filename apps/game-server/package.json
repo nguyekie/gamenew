@@ -1,0 +1,23 @@
+{
+  "name": "@aetherion/game-server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "smoke:realtime": "node scripts/realtime-smoke.mjs",
+    "test:load": "node scripts/load-test.mjs"
+  },
+  "dependencies": {
+    "@aetherion/shared-types": "workspace:*",
+    "pg": "^8.22.0",
+    "ws": "^8.21.0"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.20.0",
+    "@types/ws": "^8.18.1"
+  }
+}

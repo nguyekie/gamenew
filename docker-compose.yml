@@ -1,0 +1,71 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: aetherion
+      POSTGRES_USER: aetherion
+      POSTGRES_PASSWORD: aetherion
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aetherion -d aetherion"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api-server:
+    build:
+      context: .
+      dockerfile: infra/docker/api-server.Dockerfile
+    environment:
+      PORT: 3000
+      DATABASE_URL: postgresql://aetherion:aetherion@postgres:5432/aetherion
+      REDIS_URL: redis://redis:6379
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  game-server:
+    build:
+      context: .
+      dockerfile: infra/docker/game-server.Dockerfile
+    environment:
+      PORT: 3001
+      DATABASE_URL: postgresql://aetherion:aetherion@postgres:5432/aetherion
+      REDIS_URL: redis://redis:6379
+    ports:
+      - "3001:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  web-client:
+    build:
+      context: .
+      dockerfile: infra/docker/web-client.Dockerfile
+    ports:
+      - "8443:443"
+    depends_on:
+      - api-server
+      - game-server
+
+volumes:
+  postgres_data:

@@ -1,0 +1,30 @@
+{
+  "name": "aetherion-strategy",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@9.15.4",
+  "scripts": {
+    "dev": "concurrently -n web,api,game -c cyan,green,magenta \"corepack pnpm --filter @aetherion/web-client dev\" \"corepack pnpm --filter @aetherion/api-server dev\" \"corepack pnpm --filter @aetherion/game-server dev\"",
+    "build": "corepack pnpm -r build",
+    "typecheck": "corepack pnpm --filter @aetherion/shared-types build && corepack pnpm -r typecheck",
+    "test": "corepack pnpm --filter @aetherion/shared-types build && corepack pnpm -r test",
+    "lint": "eslint .",
+    "format": "prettier --check .",
+    "format:write": "prettier --write ."
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.18.0",
+    "@types/node": "^22.10.5",
+    "@vitejs/plugin-react": "^4.3.4",
+    "concurrently": "^9.1.2",
+    "eslint": "^9.18.0",
+    "globals": "^15.14.0",
+    "prettier": "^3.4.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3",
+    "typescript-eslint": "^8.20.0",
+    "vite": "^6.0.7",
+    "vitest": "^2.1.8"
+  }
+}
