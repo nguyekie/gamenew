@@ -60,6 +60,7 @@ import {
 const RECONNECT_WINDOW_MS = 30_000;
 const DASH_COOLDOWN_MS = 850;
 const HERO_VISION = 460;
+const SNAPSHOT_EVERY_TICKS = 2;
 
 const UNIT_NAMES: Record<UnitKind, string> = {
   swordsman: "kiếm sĩ",
@@ -645,8 +646,10 @@ export class RealtimeRoomServer {
         this.removeDeadBuildings(room);
         this.resolveWinner(room);
       }
-      for (const player of room.players.values())
-        send(player.socket, this.snapshotFor(room, player));
+      if (room.tick % SNAPSHOT_EVERY_TICKS === 0) {
+        for (const player of room.players.values())
+          send(player.socket, this.snapshotFor(room, player));
+      }
       this.expireDisconnected(room, now);
     }
   }

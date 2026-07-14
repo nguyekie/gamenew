@@ -126,6 +126,9 @@ export class BattleScene extends Phaser.Scene {
   private readonly seenLogIds = new Set<string>();
   private audioContext: AudioContext | null = null;
   private lastStrategicRenderAt = 0;
+  private lastHealthRenderAt = 0;
+  private lastReportedPlayerCount = -1;
+  private lastReportedStatus = "";
 
   constructor(roomCode: string, statusCallback: StatusCallback) {
     super({ key: "battle" });
@@ -159,7 +162,10 @@ export class BattleScene extends Phaser.Scene {
     this.updateHero(time);
     this.updateRemoteHeroes(time);
     this.updateUnits(delta / 1000);
-    this.drawHealthBars();
+    if (time - this.lastHealthRenderAt >= 100) {
+      this.lastHealthRenderAt = time;
+      this.drawHealthBars();
+    }
     this.updateDebug();
   }
 
@@ -474,7 +480,7 @@ export class BattleScene extends Phaser.Scene {
     }
     for (const node of snapshot.resourceNodes) this.upsertResourceNode(node);
     this.updateProjectiles(snapshot.projectiles);
-    if (now - this.lastStrategicRenderAt >= 200) {
+    if (now - this.lastStrategicRenderAt >= 500) {
       this.lastStrategicRenderAt = now;
       this.drawFog(snapshot);
       this.drawMinimap(snapshot);
@@ -524,11 +530,16 @@ export class BattleScene extends Phaser.Scene {
         .setVisible(true)
         .setX(this.scale.width / 2);
     }
-    this.statusCallback(
-      "online",
-      snapshot.roomPlayerCount < 2 ? "Đang chờ đối thủ" : "Chiến trường đã đồng bộ",
-      snapshot.roomPlayerCount
-    );
+    const statusDetail =
+      snapshot.roomPlayerCount < 2 ? "Đang chờ đối thủ" : "Chiến trường đã đồng bộ";
+    if (
+      statusDetail !== this.lastReportedStatus ||
+      snapshot.roomPlayerCount !== this.lastReportedPlayerCount
+    ) {
+      this.lastReportedStatus = statusDetail;
+      this.lastReportedPlayerCount = snapshot.roomPlayerCount;
+      this.statusCallback("online", statusDetail, snapshot.roomPlayerCount);
+    }
   }
 
   private updateProjectiles(projectiles: ProjectileState[]) {
