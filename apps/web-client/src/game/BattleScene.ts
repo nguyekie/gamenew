@@ -19,6 +19,7 @@ import {
 } from "@aetherion/shared-types";
 import Phaser from "phaser";
 
+import { MAX_ZOOM, minimumCameraZoom } from "./camera";
 import { keybinds, gameColors } from "./config";
 import { createFormation } from "./formation";
 import { GameNetwork, type ConnectionStatus } from "./network";
@@ -150,6 +151,7 @@ export class BattleScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.network?.close();
       void this.audioContext?.close();
+      this.scale.off(Phaser.Scale.Events.RESIZE, this.constrainCamera, this);
     });
   }
 
@@ -251,6 +253,15 @@ export class BattleScene extends Phaser.Scene {
     this.cameras.main.setBounds(0, 0, MAP_SIZE.width, MAP_SIZE.height);
     this.cameras.main.startFollow(this.localHero, true, 0.12, 0.12);
     this.cameras.main.setZoom(1);
+    this.constrainCamera();
+    this.scale.on(Phaser.Scale.Events.RESIZE, this.constrainCamera, this);
+  }
+
+  private constrainCamera() {
+    const camera = this.cameras.main;
+    const minZoom = minimumCameraZoom(camera.width, camera.height);
+    if (camera.zoom < minZoom) camera.setZoom(minZoom);
+    camera.setBounds(0, 0, MAP_SIZE.width, MAP_SIZE.height, true);
   }
 
   private configureInput() {
@@ -268,8 +279,9 @@ export class BattleScene extends Phaser.Scene {
     this.input.on(
       "wheel",
       (_pointer: Phaser.Input.Pointer, _objects: unknown, _dx: number, dy: number) => {
+        const minZoom = minimumCameraZoom(this.cameras.main.width, this.cameras.main.height);
         this.cameras.main.zoomTo(
-          Phaser.Math.Clamp(this.cameras.main.zoom - dy * 0.001, 0.65, 1.55),
+          Phaser.Math.Clamp(this.cameras.main.zoom - dy * 0.001, minZoom, MAX_ZOOM),
           120
         );
       }
