@@ -1,6 +1,7 @@
 import {
   HERO_DASH_SPEED,
   HERO_SPEED,
+  BASE_POSITIONS,
   MAP_OBSTACLES,
   MAP_SIZE,
   TERRAIN_ZONES,
@@ -237,8 +238,9 @@ export class BattleScene extends Phaser.Scene {
   }
 
   private createHero() {
+    const initialPosition = BASE_POSITIONS[0];
     this.localHero = this.physics.add
-      .sprite(250, 260, "hero-idle")
+      .sprite(initialPosition.x, initialPosition.y, "hero-idle")
       .setDepth(8)
       .setCollideWorldBounds(true);
     this.localHero.body?.setCircle(22, 2, 2);
@@ -249,6 +251,7 @@ export class BattleScene extends Phaser.Scene {
   private configureCamera() {
     if (!this.localHero) return;
     this.cameras.main.setBounds(0, 0, MAP_SIZE.width, MAP_SIZE.height);
+    this.cameras.main.setRoundPixels(true);
     this.cameras.main.startFollow(this.localHero, true, 0.12, 0.12);
     this.cameras.main.setZoom(1);
   }
@@ -420,6 +423,11 @@ export class BattleScene extends Phaser.Scene {
     const localState = snapshot.heroes.find((hero) => hero.id === this.playerId);
     this.localHeroState = localState;
     if (localState && this.localHero) {
+      if (snapshot.match.phase !== "active") {
+        this.localHero.setVelocity(0, 0);
+        this.localHero.setPosition(localState.position.x, localState.position.y);
+        return this.applySnapshotEntities(snapshot, now);
+      }
       const distance = Phaser.Math.Distance.Between(
         this.localHero.x,
         this.localHero.y,
@@ -430,6 +438,10 @@ export class BattleScene extends Phaser.Scene {
       this.localHero.x = Phaser.Math.Linear(this.localHero.x, localState.position.x, correction);
       this.localHero.y = Phaser.Math.Linear(this.localHero.y, localState.position.y, correction);
     }
+    this.applySnapshotEntities(snapshot, now);
+  }
+
+  private applySnapshotEntities(snapshot: GameSnapshot, now: number) {
     for (const hero of snapshot.heroes) {
       if (hero.id === this.playerId) continue;
       const buffer = this.remoteBuffers.get(hero.id) ?? [];
