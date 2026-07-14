@@ -77,6 +77,7 @@ export const CommandCenter = ({ open, onClose, onJoinRoom }: CommandCenterProps)
   }, [settings]);
 
   useEffect(() => {
+    if (!open) return;
     const listener = (event: Event) => {
       const snapshot = (event as CustomEvent<GameSnapshot>).detail;
       setTimeline((current) => {
@@ -88,7 +89,7 @@ export const CommandCenter = ({ open, onClose, onJoinRoom }: CommandCenterProps)
     };
     window.addEventListener("aetherion:snapshot", listener);
     return () => window.removeEventListener("aetherion:snapshot", listener);
-  }, []);
+  }, [open]);
 
   useEffect(() => {
     if (!queueing || !profile) return;

@@ -125,6 +125,7 @@ export class BattleScene extends Phaser.Scene {
   private latestSnapshot: GameSnapshot | null = null;
   private readonly seenLogIds = new Set<string>();
   private audioContext: AudioContext | null = null;
+  private lastStrategicRenderAt = 0;
 
   constructor(roomCode: string, statusCallback: StatusCallback) {
     super({ key: "battle" });
@@ -473,8 +474,11 @@ export class BattleScene extends Phaser.Scene {
     }
     for (const node of snapshot.resourceNodes) this.upsertResourceNode(node);
     this.updateProjectiles(snapshot.projectiles);
-    this.drawFog(snapshot);
-    this.drawMinimap(snapshot);
+    if (now - this.lastStrategicRenderAt >= 200) {
+      this.lastStrategicRenderAt = now;
+      this.drawFog(snapshot);
+      this.drawMinimap(snapshot);
+    }
     this.combatText?.setText(
       snapshot.combatLog
         .slice(-5)

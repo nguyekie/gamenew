@@ -30,9 +30,15 @@ const readJson = async (request: IncomingMessage) => {
 
 const bearer = (request: IncomingMessage) => request.headers.authorization?.replace(/^Bearer /, "");
 
+const clientIp = (request: IncomingMessage) => {
+  const forwarded = request.headers["x-forwarded-for"];
+  const firstForwarded = Array.isArray(forwarded) ? forwarded[0] : forwarded?.split(",")[0];
+  return firstForwarded?.trim() || request.socket.remoteAddress || "unknown";
+};
+
 const server = createServer(async (request, response) => {
   const startedAt = performance.now();
-  const ip = request.socket.remoteAddress ?? "unknown";
+  const ip = clientIp(request);
   if (request.method === "OPTIONS") return writeJson(response, 204, {});
   if (!limiter.allow(ip))
     return writeJson(response, 429, { error: "Bạn thao tác quá nhanh, vui lòng thử lại sau" });
