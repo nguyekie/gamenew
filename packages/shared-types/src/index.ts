@@ -23,7 +23,6 @@ export interface Vector2 {
 export const GAME_TICK_RATE = 20;
 export const HERO_SPEED = 220;
 export const HERO_DASH_SPEED = 520;
-export const HERO_DASH_DURATION_MS = 150;
 export const MAP_SIZE = { width: 2400, height: 1600 } as const;
 export const BASE_POSITIONS = [
   { x: 260, y: 260 },

@@ -3,7 +3,6 @@ import { useEffect, useMemo, useState } from "react";
 import type { CombatLogEntry, GameSnapshot } from "@aetherion/shared-types";
 
 import { apiRequest, authenticate, loadLocalProfile, type MatchInfo, type Profile } from "./api";
-import { HowToPlay } from "./HowToPlay";
 import {
   CHAPTER_ONE,
   applyTutorialEvent,
@@ -212,7 +211,6 @@ export const CommandCenter = ({ open, onClose, onJoinRoom }: CommandCenterProps)
       <div className="panel-content">
         {tab === "tutorial" && (
           <div className="tutorial-panel">
-            <HowToPlay />
             <div className="mission-progress">
               Chương 1 · {story.completedMissionIds.length}/5 nhiệm vụ
             </div>

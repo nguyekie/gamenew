@@ -1,6 +1,5 @@
 import {
   HERO_DASH_SPEED,
-  HERO_DASH_DURATION_MS,
   HERO_SPEED,
   MAP_OBSTACLES,
   MAP_SIZE,
@@ -20,12 +19,10 @@ import {
 } from "@aetherion/shared-types";
 import Phaser from "phaser";
 
-import { MAX_ZOOM, minimumCameraZoom } from "./camera";
 import { keybinds, gameColors } from "./config";
 import { createFormation } from "./formation";
 import { GameNetwork, type ConnectionStatus } from "./network";
 import { findPath } from "./pathfinding";
-import { reconcileHeroPosition } from "./reconciliation";
 
 interface UnitView {
   state: UnitState;
@@ -118,7 +115,6 @@ export class BattleScene extends Phaser.Scene {
   private lastInputSentAt = 0;
   private dashUntil = 0;
   private dashReadyAt = 0;
-  private lastMovementAt = 0;
   private panAnchor: Phaser.Math.Vector2 | undefined;
   private activeAnimation = "idle";
   private currentMatchPhase: GameSnapshot["match"]["phase"] = "waiting";
@@ -154,13 +150,11 @@ export class BattleScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.network?.close();
       void this.audioContext?.close();
-      this.scale.off(Phaser.Scale.Events.RESIZE, this.constrainCamera, this);
     });
   }
 
   update(time: number, delta: number) {
     this.updateHero(time);
-    this.updateHeroReconciliation(time, delta / 1000);
     this.updateRemoteHeroes(time);
     this.updateUnits(delta / 1000);
     this.drawHealthBars();
@@ -257,15 +251,6 @@ export class BattleScene extends Phaser.Scene {
     this.cameras.main.setBounds(0, 0, MAP_SIZE.width, MAP_SIZE.height);
     this.cameras.main.startFollow(this.localHero, true, 0.12, 0.12);
     this.cameras.main.setZoom(1);
-    this.constrainCamera();
-    this.scale.on(Phaser.Scale.Events.RESIZE, this.constrainCamera, this);
-  }
-
-  private constrainCamera() {
-    const camera = this.cameras.main;
-    const minZoom = minimumCameraZoom(camera.width, camera.height);
-    if (camera.zoom < minZoom) camera.setZoom(minZoom);
-    camera.setBounds(0, 0, MAP_SIZE.width, MAP_SIZE.height, true);
   }
 
   private configureInput() {
@@ -283,9 +268,8 @@ export class BattleScene extends Phaser.Scene {
     this.input.on(
       "wheel",
       (_pointer: Phaser.Input.Pointer, _objects: unknown, _dx: number, dy: number) => {
-        const minZoom = minimumCameraZoom(this.cameras.main.width, this.cameras.main.height);
         this.cameras.main.zoomTo(
-          Phaser.Math.Clamp(this.cameras.main.zoom - dy * 0.001, minZoom, MAX_ZOOM),
+          Phaser.Math.Clamp(this.cameras.main.zoom - dy * 0.001, 0.65, 1.55),
           120
         );
       }
@@ -371,13 +355,12 @@ export class BattleScene extends Phaser.Scene {
       Number(this.keys.down.isDown) - Number(this.keys.up.isDown)
     );
     if (movement.lengthSq() > 0) movement.normalize();
-    if (movement.lengthSq() > 0) this.lastMovementAt = time;
     if (
       Phaser.Input.Keyboard.JustDown(this.keys.dash) &&
       time >= this.dashReadyAt &&
       movement.lengthSq() > 0
     ) {
-      this.dashUntil = time + HERO_DASH_DURATION_MS;
+      this.dashUntil = time + 150;
       this.dashReadyAt = time + 850;
     }
     const dashing = time < this.dashUntil;
@@ -424,17 +407,6 @@ export class BattleScene extends Phaser.Scene {
     if (state === "dash") this.localHero.setScale(1.18, 0.82);
   }
 
-  private updateHeroReconciliation(time: number, deltaSeconds: number) {
-    if (!this.localHero || !this.localHeroState) return;
-    const reconciled = reconcileHeroPosition(
-      { x: this.localHero.x, y: this.localHero.y },
-      this.localHeroState.position,
-      time - this.lastMovementAt < 220,
-      deltaSeconds
-    );
-    this.localHero.setPosition(reconciled.x, reconciled.y);
-  }
-
   private applySnapshot(snapshot: GameSnapshot) {
     this.latestSnapshot = snapshot;
     window.dispatchEvent(new CustomEvent<GameSnapshot>("aetherion:snapshot", { detail: snapshot }));
@@ -447,6 +419,17 @@ export class BattleScene extends Phaser.Scene {
     const now = performance.now();
     const localState = snapshot.heroes.find((hero) => hero.id === this.playerId);
     this.localHeroState = localState;
+    if (localState && this.localHero) {
+      const distance = Phaser.Math.Distance.Between(
+        this.localHero.x,
+        this.localHero.y,
+        localState.position.x,
+        localState.position.y
+      );
+      const correction = distance > 180 ? 1 : 0.12;
+      this.localHero.x = Phaser.Math.Linear(this.localHero.x, localState.position.x, correction);
+      this.localHero.y = Phaser.Math.Linear(this.localHero.y, localState.position.y, correction);
+    }
     for (const hero of snapshot.heroes) {
       if (hero.id === this.playerId) continue;
       const buffer = this.remoteBuffers.get(hero.id) ?? [];
