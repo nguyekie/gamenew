@@ -1,7 +1,6 @@
 import {
   HERO_DASH_SPEED,
   HERO_SPEED,
-  BASE_POSITIONS,
   MAP_OBSTACLES,
   MAP_SIZE,
   TERRAIN_ZONES,
@@ -125,10 +124,6 @@ export class BattleScene extends Phaser.Scene {
   private latestSnapshot: GameSnapshot | null = null;
   private readonly seenLogIds = new Set<string>();
   private audioContext: AudioContext | null = null;
-  private lastStrategicRenderAt = 0;
-  private lastHealthRenderAt = 0;
-  private lastReportedPlayerCount = -1;
-  private lastReportedStatus = "";
 
   constructor(roomCode: string, statusCallback: StatusCallback) {
     super({ key: "battle" });
@@ -162,10 +157,7 @@ export class BattleScene extends Phaser.Scene {
     this.updateHero(time);
     this.updateRemoteHeroes(time);
     this.updateUnits(delta / 1000);
-    if (time - this.lastHealthRenderAt >= 100) {
-      this.lastHealthRenderAt = time;
-      this.drawHealthBars();
-    }
+    this.drawHealthBars();
     this.updateDebug();
   }
 
@@ -245,9 +237,8 @@ export class BattleScene extends Phaser.Scene {
   }
 
   private createHero() {
-    const initialPosition = BASE_POSITIONS[0];
     this.localHero = this.physics.add
-      .sprite(initialPosition.x, initialPosition.y, "hero-idle")
+      .sprite(250, 260, "hero-idle")
       .setDepth(8)
       .setCollideWorldBounds(true);
     this.localHero.body?.setCircle(22, 2, 2);
@@ -258,7 +249,6 @@ export class BattleScene extends Phaser.Scene {
   private configureCamera() {
     if (!this.localHero) return;
     this.cameras.main.setBounds(0, 0, MAP_SIZE.width, MAP_SIZE.height);
-    this.cameras.main.setRoundPixels(true);
     this.cameras.main.startFollow(this.localHero, true, 0.12, 0.12);
     this.cameras.main.setZoom(1);
   }
@@ -430,11 +420,6 @@ export class BattleScene extends Phaser.Scene {
     const localState = snapshot.heroes.find((hero) => hero.id === this.playerId);
     this.localHeroState = localState;
     if (localState && this.localHero) {
-      if (snapshot.match.phase !== "active") {
-        this.localHero.setVelocity(0, 0);
-        this.localHero.setPosition(localState.position.x, localState.position.y);
-        return this.applySnapshotEntities(snapshot, now);
-      }
       const distance = Phaser.Math.Distance.Between(
         this.localHero.x,
         this.localHero.y,
@@ -445,10 +430,6 @@ export class BattleScene extends Phaser.Scene {
       this.localHero.x = Phaser.Math.Linear(this.localHero.x, localState.position.x, correction);
       this.localHero.y = Phaser.Math.Linear(this.localHero.y, localState.position.y, correction);
     }
-    this.applySnapshotEntities(snapshot, now);
-  }
-
-  private applySnapshotEntities(snapshot: GameSnapshot, now: number) {
     for (const hero of snapshot.heroes) {
       if (hero.id === this.playerId) continue;
       const buffer = this.remoteBuffers.get(hero.id) ?? [];
@@ -480,11 +461,8 @@ export class BattleScene extends Phaser.Scene {
     }
     for (const node of snapshot.resourceNodes) this.upsertResourceNode(node);
     this.updateProjectiles(snapshot.projectiles);
-    if (now - this.lastStrategicRenderAt >= 500) {
-      this.lastStrategicRenderAt = now;
-      this.drawFog(snapshot);
-      this.drawMinimap(snapshot);
-    }
+    this.drawFog(snapshot);
+    this.drawMinimap(snapshot);
     this.combatText?.setText(
       snapshot.combatLog
         .slice(-5)
@@ -530,16 +508,11 @@ export class BattleScene extends Phaser.Scene {
         .setVisible(true)
         .setX(this.scale.width / 2);
     }
-    const statusDetail =
-      snapshot.roomPlayerCount < 2 ? "Đang chờ đối thủ" : "Chiến trường đã đồng bộ";
-    if (
-      statusDetail !== this.lastReportedStatus ||
-      snapshot.roomPlayerCount !== this.lastReportedPlayerCount
-    ) {
-      this.lastReportedStatus = statusDetail;
-      this.lastReportedPlayerCount = snapshot.roomPlayerCount;
-      this.statusCallback("online", statusDetail, snapshot.roomPlayerCount);
-    }
+    this.statusCallback(
+      "online",
+      snapshot.roomPlayerCount < 2 ? "Đang chờ đối thủ" : "Chiến trường đã đồng bộ",
+      snapshot.roomPlayerCount
+    );
   }
 
   private updateProjectiles(projectiles: ProjectileState[]) {
